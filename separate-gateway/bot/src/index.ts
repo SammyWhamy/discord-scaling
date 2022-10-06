@@ -1,18 +1,15 @@
 import {GatewayDispatchPayload} from "discord-api-types/v10";
-import {WebSocket, WebSocketServer} from 'ws';
+import {WebSocket} from 'ws';
 import {Client} from 'discord.js';
 
 const clients: Client[] = [];
 
-const wss = new WebSocketServer({ port: 80 });
+const ws = new WebSocket('ws://gateway:80');
 
-wss.on('connection', function connection(ws) {
-    console.log('Connected to gateway manager');
-    ws.on('message', websocketMessage.bind(null, ws));
-});
-
-wss.on('close', () => console.log('Disconnected from gateway manager'));
-wss.on('error', (error) => console.log(`Gateway manager websocket error: ${error}`));
+ws.on('open', () => console.log('Connected to gateway manager'));
+ws.on('close', () => console.log('Disconnected from gateway manager'));
+ws.on('error', (error) => console.log(`Gateway manager websocket error: ${error}`));
+ws.on('message', websocketMessage.bind(null, ws));
 
 async function websocketMessage(ws: WebSocket, message: string) {
     const payload = JSON.parse(message);
@@ -56,10 +53,25 @@ function loadEvents(client: Client, shardId: number) {
 
         console.log(`Received message: ${message.content}`);
 
-        await message.reply({content: "fuck u (2)"});
+        await message.reply({content: "fuck u"});
     });
 
     client.on('ready', () => {
         console.log(`Shard ${shardId} is ready`);
     });
 }
+
+const maxRetries = 10;
+let retries = 0;
+
+while (ws.readyState !== WebSocket.OPEN) {
+    if (retries === maxRetries) {
+        console.log(`Failed to connect to gateway manager`);
+        process.exit(1);
+    }
+    console.log(`Waiting for websocket connection... (WebSocket state: ${ws.readyState})`);
+    await new Promise(resolve => setTimeout(resolve, 1000));
+    retries++;
+}
+
+ws.send(JSON.stringify({op: 'available'}));

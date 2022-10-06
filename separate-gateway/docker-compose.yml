@@ -10,12 +10,15 @@ services:
       - DISCORD_TOKEN=${DISCORD_TOKEN}
       - BOT_REPLICAS=${BOT_REPLICAS}
       - COMPOSE_PROJECT_NAME=${COMPOSE_PROJECT_NAME}
+      - SHARD_COUNT=${SHARD_COUNT}
     networks:
       - 'discord'
   bot:
     # image: 'ghcr.io/sammywhamy/scaling-separate-gateway-bot:latest'
     build: './bot'
     restart: unless-stopped
+    depends_on:
+      - 'gateway'
     deploy:
       replicas: ${BOT_REPLICAS}
     environment:
