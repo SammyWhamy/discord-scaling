@@ -1,10 +1,11 @@
-import {GatewayDispatchEvents, GatewayDispatchPayload} from "discord-api-types/v10";
+import {GatewayDispatchEvents, GatewayDispatchPayload, GatewayGuildCreateDispatch} from "discord-api-types/v10";
 import {WebSocket} from "ws";
 
 export type ShardOptions = {
     id: number;
     shardCount: number;
     endpoint: string;
+    expectedGuilds: Set<string>;
 }
 
 export class Shard {
@@ -13,29 +14,38 @@ export class Shard {
     public status: "connected" | "reconnecting" | "disconnected" = "disconnected";
     public webSocket: WebSocket | null = null;
     private dispatchQueue: GatewayDispatchPayload[] = [];
-    private guildCreateState: GatewayDispatchPayload[] = [];
+    private guildCreateState: GatewayGuildCreateDispatch[] = [];
     private clientReady = false;
+    private readonly expectedGuilds: Set<string>;
 
     public constructor(options: ShardOptions) {
         this.id = options.id;
         this.shardCount = options.shardCount;
+        this.expectedGuilds = options.expectedGuilds;
     }
 
-    public setWebsocket(ws: WebSocket) {
+    public attachWebsocket(ws: WebSocket) {
+        console.log(`[S${this.id}] => Websocket assigned`);
+
         this.webSocket = ws;
-        this.webSocket.removeAllListeners();
+
         this.webSocket.on("close", this.websocketClose.bind(this));
         this.webSocket.on("message", this.websocketMessage.bind(this));
         this.webSocket.on("error", this.websocketError.bind(this));
 
-        if (this.status === "reconnecting") console.log(`[S${this.id}] => Reconnected`);
-        else console.log(`[S${this.id}] => Connected`);
+        if (this.status === "reconnecting")
+            console.log(`[S${this.id}] => Reconnected`);
+        else
+            console.log(`[S${this.id}] => Connected`);
 
         this.status = "connected";
 
         this.webSocket.send(JSON.stringify({
             op: 'identify',
             shardId: this.id,
+            d: {
+                expectedGuilds: Array.from(this.expectedGuilds),
+            }
         }));
     }
 
@@ -51,6 +61,8 @@ export class Shard {
 
     public websocketMessage(data: string) {
         const payload = JSON.parse(data);
+        if (payload.shardId !== this.id) return;
+
         console.log(`[S${this.id}] => Received message: ${payload.op}`);
 
         if (payload.op === 'ready') {
@@ -63,15 +75,20 @@ export class Shard {
 
     public dispatch(payload: GatewayDispatchPayload) {
         if (payload.t === GatewayDispatchEvents.GuildCreate) {
-            this.guildCreateState.push(payload);
-
-            if (this.clientReady)
-                this.dispatchQueue.unshift(payload);
-        } else {
-            this.dispatchQueue.push(payload);
+            this.addToGuildState(payload);
         }
 
+        this.dispatchQueue.push(payload);
         this.processDispatchQueue();
+    }
+
+    public addToGuildState(payload: GatewayGuildCreateDispatch) {
+        if (this.guildCreateState.some(x => x.d.id === payload.d.id)) {
+            this.guildCreateState = this.guildCreateState.filter(x => x.d.id !== payload.d.id);
+        }
+
+        this.expectedGuilds.add(payload.d.id);
+        this.guildCreateState.push(payload);
     }
 
     public processDispatchQueue() {

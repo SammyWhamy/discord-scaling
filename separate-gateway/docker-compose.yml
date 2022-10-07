@@ -17,8 +17,6 @@ services:
     # image: 'ghcr.io/sammywhamy/scaling-separate-gateway-bot:latest'
     build: './bot'
     restart: unless-stopped
-    depends_on:
-      - 'gateway'
     deploy:
       replicas: ${BOT_REPLICAS}
     environment:

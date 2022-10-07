@@ -39,6 +39,7 @@ function websocketMessage(ws: WebSocket, message: string) {
 
 function handleAvailable(ws: WebSocket, payload: {v: string}) {
     console.log(`[GWM] => New client available`);
+    ws.removeAllListeners('message');
 
     const manager = clients.find(m => !m.ws);
     if (manager) {
@@ -48,7 +49,7 @@ function handleAvailable(ws: WebSocket, payload: {v: string}) {
 
         for (const shard of manager.shards) {
             if (shard)
-                shard.setWebsocket(ws);
+                shard.attachWebsocket(ws);
         }
 
         return;
@@ -70,7 +71,7 @@ function handleAvailable(ws: WebSocket, payload: {v: string}) {
         manager!.version = payload.v;
 
         for (const shard of manager!.shards)
-            shard.setWebsocket(ws);
+            shard.attachWebsocket(ws);
 
         return;
     }
@@ -91,7 +92,7 @@ export type Client = {
     shards: Shard[],
     wsManager: WebSocketManager,
     ws: WebSocket | null,
-    version?: string,
+    version: string | null,
 }
 
 const clientShardMap: Map<number, number[]> = new Map();
@@ -119,6 +120,7 @@ for (let i = 0; i < botCount; i++) {
         shards: [],
         wsManager: new WebSocketManager({token, intents, rest, shardIds, shardCount}),
         ws: ws?.ws || null,
+        version: ws?.v || null,
     }
 
     clients[i].wsManager.on(WebSocketShardEvents.Ready, (payload) => {
@@ -128,12 +130,12 @@ for (let i = 0; i < botCount; i++) {
             id: payload.shardId,
             shardCount: shardCount,
             endpoint: `ws://${process.env.COMPOSE_PROJECT_NAME}-bot-${i + 1}:80/`,
+            expectedGuilds: new Set(), // new Set(payload.data.guilds.map(g => g.id)),
         });
 
-        if (ws) {
-            clients[i].shards[payload.shardId].setWebsocket(ws.ws);
-            clients[i].version = ws.v;
-        }
+        const wsToAttach = clients[i].ws || ws?.ws;
+        if (wsToAttach)
+            clients[i].shards[payload.shardId].attachWebsocket(wsToAttach);
     });
 
     clients[i].wsManager.on(WebSocketShardEvents.Hello, (payload) => {
@@ -146,6 +148,7 @@ for (let i = 0; i < botCount; i++) {
 
     clients[i].wsManager.on(WebSocketShardEvents.Dispatch, async (payload) => {
         clients[i].shards[payload.shardId].dispatch(payload.data);
+        console.log(JSON.stringify(payload.data));
     });
 
     await clients[i].wsManager.connect();
