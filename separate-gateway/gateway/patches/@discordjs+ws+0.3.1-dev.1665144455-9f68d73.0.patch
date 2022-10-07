@@ -1,0 +1,13 @@
+diff --git a/node_modules/@discordjs/ws/dist/index.mjs b/node_modules/@discordjs/ws/dist/index.mjs
+index 1f497ab..c486bba 100644
+--- a/node_modules/@discordjs/ws/dist/index.mjs
++++ b/node_modules/@discordjs/ws/dist/index.mjs
+@@ -280,7 +280,7 @@ var CompressionMethod = /* @__PURE__ */ ((CompressionMethod2) => {
+   CompressionMethod2["ZlibStream"] = "zlib-stream";
+   return CompressionMethod2;
+ })(CompressionMethod || {});
+-var packageJson = readFileSync(join2(__dirname, "..", "..", "package.json"), "utf8");
++var packageJson = readFileSync(join2(__dirname, "..", "package.json"), "utf8");
+ var Package = JSON.parse(packageJson);
+ var DefaultDeviceProperty = `@discordjs/ws ${Package.version}`;
+ var getDefaultSessionStore = lazy(() => new Collection3());

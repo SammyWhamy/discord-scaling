@@ -16,6 +16,7 @@ WORKDIR /app
 COPY --from=build /app/dist ./dist
 COPY package.json ./
 COPY yarn.lock ./
+COPY ./patches ./patches
 RUN yarn install --production --frozen-lockfile
 
 EXPOSE 80
