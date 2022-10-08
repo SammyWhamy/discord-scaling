@@ -4,6 +4,13 @@ import {EventEmitter} from "events";
 import {WebSocket} from "ws";
 import {log, LogLevel} from "../util/logger.js";
 
+export enum WebSocketCloseCodes {
+    Reconnect = 4000,
+    Outdated = 4001,
+    NotNeeded = 4002,
+}
+
+
 export type DiscordClient = Client & {
     expectedGuilds: Set<string>;
     readyTimeout: NodeJS.Timeout | null;
@@ -77,13 +84,26 @@ export class GatewayWebSocket extends EventEmitter {
         });
     }
 
-    private onClose() {
+    private onClose(code: number) {
         log({
             level: LogLevel.FATAL,
             task: 'CM',
             step: 'WS',
-            message: 'Disconnected from gateway manager'
+            message: `Disconnected from gateway manager with code ${code} (${WebSocketCloseCodes[code]}), exiting...`
         });
+
+        switch (code) {
+            case WebSocketCloseCodes.Reconnect:
+                process.exit(1);
+                break;
+            case WebSocketCloseCodes.Outdated:
+            case WebSocketCloseCodes.NotNeeded:
+                process.exit(0);
+                break;
+            default:
+                process.exit(1);
+                break;
+        }
     }
 
     private onError(error: Error) {
