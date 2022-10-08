@@ -1,7 +1,10 @@
 import {REST} from "@discordjs/rest";
 import {APIGatewayBotInfo, APIUser, RESTGetAPIOAuth2CurrentApplicationResult} from "discord-api-types/v10.js";
+import {GatewayWebSocketServer} from "../client/GatewayWebSocketServer.js";
 
-export async function printInfo(clientShardMap: Map<number, number[]>, rest: REST, botCount: number, shardCount: number) {
+export async function printInfo(rest: REST, clientCount: number, shardCount: number) {
+    const clientShardMap = GatewayWebSocketServer.GenerateClientShardMap(clientCount, shardCount);
+
     console.log("\n========================= Shard client map: =====================");
     const shardTexts: Map<number, string> = new Map();
     for (const [managerId, shardIds] of clientShardMap.entries()) {
@@ -9,7 +12,7 @@ export async function printInfo(clientShardMap: Map<number, number[]>, rest: RES
     }
     const longest = Math.max(20, ...Array.from(shardTexts.values()).map(s => s.length));
     for (const [managerId, shardText] of shardTexts.entries()) {
-        const managerText = botCount > 9 ? `Client ${managerId.toString().padStart(2, "0")}` : `Client ${managerId}`;
+        const managerText = clientCount > 9 ? `Client ${managerId.toString().padStart(2, "0")}` : `Client ${managerId}`;
         console.log(`${shardText.padEnd(longest)} => ${managerText} ⇔  ws://${process.env.COMPOSE_PROJECT_NAME}-bot-${managerId+1}:80/`);
     }
 

@@ -7,9 +7,9 @@ export function compareVersions(version1: string, version2: string) {
         const part2 = parseInt(version2Parts[i]);
 
         if (part1 > part2)
-            return (part2 - part1) * Math.pow(10, 2 - i);
+            return (part2 - part1) * Math.pow(10, (2 - i) * 2);
         else if (part1 < part2)
-            return (part2 - part1) * Math.pow(10, 2 - i);
+            return (part2 - part1) * Math.pow(10, (2 - i) * 2);
     }
 
     return 0;

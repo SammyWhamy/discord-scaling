@@ -141,7 +141,7 @@ export class GatewayWebSocket extends EventEmitter {
         client.rest.setToken(process.env.DISCORD_TOKEN!);
         client.expectedGuilds = new Set(payload.d.expectedGuilds);
         client.readyTimeout = null;
-        client.readyTimeoutTime = 15000;
+        client.readyTimeoutTime = 7500;
         client.ws.status = Status.WaitingForGuilds;
 
         this.clients[payload.shardId] = client;
@@ -154,10 +154,10 @@ export class GatewayWebSocket extends EventEmitter {
             level: LogLevel.DEBUG,
             task: `S${payload.shardId}`,
             step: 'WS',
-            message: `Sending ready to gateway manager`
+            message: `Sending readyForGuilds to gateway manager`
         });
 
-        this.ws.send(JSON.stringify({op: 'ready', shardId: payload.shardId}));
+        this.ws.send(JSON.stringify({op: 'readyForGuilds', shardId: payload.shardId}));
     }
 
     private handleDispatch(payload: {op: 'dispatch', shardId: number, d: GatewayDispatchPayload}) {
@@ -181,17 +181,35 @@ export class GatewayWebSocket extends EventEmitter {
         }
 
         if (client.expectedGuilds.size === 0) {
-            log({level: LogLevel.DEBUG, task: `S${shardId}`, step: 'State', message: `Shard ${shardId} is ready`});
-            client.readyTimeout = null;
-            client.ws["triggerClientReady"]();
+            this.ready(client, shardId);
             return;
         }
 
         client.readyTimeout = setTimeout(() => {
-            log({level: LogLevel.WARN, task: `S${shardId}`, step: 'State', message: `Not receiving any more guilds, unavailable guild count: ${client.expectedGuilds.size}`});
-            client.readyTimeout = null;
-            client.ws["triggerClientReady"]();
+            this.ready(client, shardId);
         }, client.readyTimeoutTime).unref();
+    }
+
+    private ready(client: DiscordClient, shardId: number) {
+        if (client.expectedGuilds.size > 0) {
+            log({
+                level: LogLevel.WARN,
+                task: `S${shardId}`,
+                step: 'State',
+                message: `Not receiving any more guilds, unavailable guild count: ${client.expectedGuilds.size}`
+            });
+        } else {
+            log({
+                level: LogLevel.DEBUG,
+                task: `S${shardId}`,
+                step: 'State',
+                message: `Shard ${shardId} is ready`
+            });
+        }
+
+        client.readyTimeout = null;
+        client.ws["triggerClientReady"]();
+        this.ws.send(JSON.stringify({op: 'ready', shardId: shardId}));
     }
 
     private createFakeWebSocketShard(id: number, status: Status): WebSocketShard {

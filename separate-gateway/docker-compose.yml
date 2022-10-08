@@ -3,7 +3,7 @@ version: '3.8'
 services:
   gateway:
     container_name: 'gateway'
-    # image: 'ghcr.io/sammywhamy/scaling-separate-gateway-gateway:latest'
+    image: 'ghcr.io/sammywhamy/scaling-separate-gateway-gateway:0.1.11'
     build: './gateway'
     restart: unless-stopped
     environment:
@@ -14,12 +14,21 @@ services:
       - LOG_LEVEL=${LOG_LEVEL}
     networks:
       - 'discord'
-  bot:
-    # image: 'ghcr.io/sammywhamy/scaling-separate-gateway-bot:latest'
-    build: './bot'
+  bot_p:
+    image: 'ghcr.io/sammywhamy/scaling-separate-gateway-bot:0.1.2'
     restart: on-failure
     deploy:
-      replicas: ${BOT_REPLICAS}
+      replicas: ${BOT_P_REPLICAS}
+    environment:
+      - DISCORD_TOKEN=${DISCORD_TOKEN}
+      - LOG_LEVEL=${LOG_LEVEL}
+    networks:
+      - 'discord'
+  bot_s:
+    image: 'ghcr.io/sammywhamy/scaling-separate-gateway-bot:0.1.3'
+    restart: on-failure
+    deploy:
+      replicas: ${BOT_S_REPLICAS}
     environment:
       - DISCORD_TOKEN=${DISCORD_TOKEN}
       - LOG_LEVEL=${LOG_LEVEL}

@@ -1,6 +1,6 @@
 {
   "name": "gateway",
-  "version": "0.1.0",
+  "version": "0.1.11",
   "description": "Scaling example, Separate Gateway, Gateway",
   "main": "dist/index.js",
   "type": "module",

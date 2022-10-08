@@ -27,15 +27,14 @@ if (!token || !clientCount || !shardCount) {
     process.exit(1);
 }
 
-const wss = new GatewayWebSocketServer({port: 80}, clientCount);
 const rest = new REST().setToken(token);
+await printInfo(rest, clientCount, shardCount);
+
+const wss = new GatewayWebSocketServer({port: 80}, clientCount, shardCount);
 
 for (let id = 0; id < clientCount; id++) {
-    wss.addClient({id, clientCount, shardCount, token, intents, rest, wss});
+    wss.addClient({id, token, intents, rest});
     await wss.connectClient(id);
 
-    // TODO: Only timeout when concurrency is reached
     await new Promise(resolve => setTimeout(resolve, 5000));
 }
-
-await printInfo(wss.clientShardMap, rest, clientCount, shardCount);

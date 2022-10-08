@@ -15,7 +15,7 @@ export class Shard {
     public webSocket: WebSocket | null = null;
     private dispatchQueue: GatewayDispatchPayload[] = [];
     private guildCreateState: GatewayGuildCreateDispatch[] = [];
-    private clientReady = false;
+    private clientReadyState: "notReady" | "readyForGuilds" | "ready"  = "notReady";
     private readonly expectedGuilds: Set<string>;
     private expectedGuildsSent = 0;
 
@@ -42,9 +42,7 @@ export class Shard {
 
         this.webSocket = ws;
 
-        this.webSocket.on("close", this.websocketClose.bind(this));
         this.webSocket.on("message", this.websocketMessage.bind(this));
-        this.webSocket.on("error", this.websocketError.bind(this));
 
         if (this.status === "reconnecting") {
             log({
@@ -62,6 +60,8 @@ export class Shard {
         }
 
         this.status = "connected";
+        this.clientReadyState = "notReady";
+        this.expectedGuildsSent = 0;
 
         log({
             level: LogLevel.DEBUG,
@@ -79,36 +79,36 @@ export class Shard {
         }));
     }
 
-    public async websocketClose() {
-        log({level: LogLevel.WARN, task: `S${this.id}`, step: 'WS', message: `Disconnected`});
-        this.status = "disconnected";
-        this.clientReady = false;
-        this.webSocket = null;
-        this.expectedGuildsSent = 0;
-    }
-
-    public websocketError(error: Error) {
-        log({level: LogLevel.WARN, task: `S${this.id}`, step: 'WS', message: `WebSocket error: ${error.message}`});
-    }
-
     public websocketMessage(data: string) {
         const payload = JSON.parse(data);
         if (payload.shardId !== this.id) return;
 
         log({level: LogLevel.DEBUG, task: `S${this.id}`, step: 'WS', message: `Received message: ${payload.op}`});
 
-        if (payload.op === 'ready') {
-            log({level: LogLevel.INFO, task: `S${this.id}`, step: 'Client', message: `Ready!`});
-            this.clientReady = true;
+        if (payload.op === 'readyForGuilds') {
+            log({level: LogLevel.DEBUG, task: `S${this.id}`, step: 'Client', message: `Ready for guilds`});
+
+            this.clientReadyState = "readyForGuilds";
             this.dispatchQueue = [...this.guildCreateState, ...this.dispatchQueue];
             this.processDispatchQueue();
+
+            return;
+        }
+
+        if (payload.op === 'ready') {
+            log({level: LogLevel.INFO, task: `S${this.id}`, step: 'Client', message: `Ready!`});
+
+            this.clientReadyState = "ready";
+            this.processDispatchQueue();
+
+            return;
         }
     }
 
     public dispatch(payload: GatewayDispatchPayload) {
         if (payload.t === GatewayDispatchEvents.GuildCreate) {
             this.addToGuildState(payload);
-            if (!this.clientReady) {
+            if (this.clientReadyState === "notReady") {
                 log({level: LogLevel.DEBUG, task: `S${this.id}`, step: 'Event', message: `Not ready, deferring dispatch`});
                 return;
             }
@@ -138,8 +138,13 @@ export class Shard {
             return;
         }
 
-        if (!this.clientReady) {
+        if (this.clientReadyState === "notReady") {
             log({level: LogLevel.DEBUG, task: `S${this.id}`, step: 'Event', message: `Not ready, deferring dispatch`});
+            return;
+        }
+
+        if (this.clientReadyState === "readyForGuilds" && this.dispatchQueue[0].t !== GatewayDispatchEvents.GuildCreate) {
+            log({level: LogLevel.DEBUG, task: `S${this.id}`, step: 'Event', message: `Only ready for guilds, deferring dispatch`});
             return;
         }
 
