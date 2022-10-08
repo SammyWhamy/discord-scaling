@@ -171,9 +171,8 @@ export class GatewayWebSocketServer {
                 message: `Found older unassigned websocket, replacing it`
             });
 
-            const {address} = this.unassignedWebSockets.find(c => compareVersions(c.v, payload.v) === oldestUnassigned)!;
-            this.unassignedWebSockets = this.unassignedWebSockets.filter(c => c.address !== address);
-            this.unassignedWebSockets.push({ws, v: payload.v, address: addr});
+            const {ws} = this.unassignedWebSockets.find(c => compareVersions(c.v, payload.v) === oldestUnassigned)!;
+            ws.close();
 
             return;
         }
