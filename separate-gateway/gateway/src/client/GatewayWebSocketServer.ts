@@ -4,6 +4,12 @@ import {ClientOptions, Client} from "./Client.js";
 import {compareVersions} from "../util/compareVersion.js";
 import {log, LogLevel} from "../util/logger.js";
 
+export enum WebSocketCloseCodes {
+    Reconnect = 4000,
+    Outdated = 4001,
+    NotNeeded = 4002,
+}
+
 export class GatewayWebSocketServer {
     private readonly server: WebSocketServer;
     public readonly clientCount: number;
@@ -172,7 +178,7 @@ export class GatewayWebSocketServer {
             });
 
             const {ws} = this.unassignedWebSockets.find(c => compareVersions(c.v, payload.v) === oldestUnassigned)!;
-            ws.close();
+            ws.close(WebSocketCloseCodes.Reconnect);
 
             return;
         }
@@ -185,7 +191,7 @@ export class GatewayWebSocketServer {
                 message: `Websocket is outdated and not needed, closing it`
             });
 
-            ws.close();
+            ws.close(WebSocketCloseCodes.Outdated);
             return
         }
 
@@ -196,6 +202,6 @@ export class GatewayWebSocketServer {
             message: `Already have enough unassigned websockets, closing this one`
         });
 
-        ws.close();
+        ws.close(WebSocketCloseCodes.NotNeeded);
     }
 }
