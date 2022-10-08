@@ -9,7 +9,7 @@ export class GatewayWebSocketServer {
     public readonly clientCount: number;
     public readonly clients: Client[] = [];
     public readonly clientShardMap: Map<number, number[]> = new Map();
-    public unassignedWebSockets: {ws: WebSocket, v: string}[] = [];
+    public unassignedWebSockets: {ws: WebSocket, v: string, address: string}[] = [];
 
     public constructor(options: ServerOptions, clientCount: number) {
         this.server = new WebSocketServer(options);
@@ -42,7 +42,7 @@ export class GatewayWebSocketServer {
             message: `New websocket connection from ${req.socket.remoteAddress}`
         });
 
-        ws.on('message', this.onMessage.bind(this, ws));
+        ws.on('message', this.onMessage.bind(this, ws, req));
         ws.on('close', this.onClose.bind(this, ws));
     }
 
@@ -75,13 +75,13 @@ export class GatewayWebSocketServer {
         }
     }
 
-    private onMessage(ws: WebSocket, message: string) {
+    private onMessage(ws: WebSocket, req: IncomingMessage, message: string) {
         const payload = JSON.parse(message);
         if (payload.op === 'available')
-            this.handleAvailableWebsocket(ws, payload);
+            this.handleAvailableWebsocket(ws, req, payload);
     }
 
-    private handleAvailableWebsocket(ws: WebSocket, payload: {op: 'available', v: string}) {
+    private handleAvailableWebsocket(ws: WebSocket, req: IncomingMessage, payload: {op: 'available', v: string}) {
         log({
             level: LogLevel.INFO,
             task: 'GWM',
@@ -91,6 +91,7 @@ export class GatewayWebSocketServer {
 
         ws.removeAllListeners('message');
 
+        const addr = req.socket.remoteAddress || 'unknown';
         const manager = this.clients.find(m => !m.ws);
         if (manager) {
             log({
@@ -102,6 +103,7 @@ export class GatewayWebSocketServer {
 
             manager.ws = ws
             manager.version = payload.v;
+            manager.wsAddress = addr;
 
             for (const shard of manager.shards) {
                 if (shard)
@@ -119,7 +121,7 @@ export class GatewayWebSocketServer {
                 message: `Not all clients initialized yet, storing websocket`
             });
 
-            this.unassignedWebSockets.push({ws, v: payload.v});
+            this.unassignedWebSockets.push({ws, v: payload.v, address: addr});
             return;
         }
 
@@ -133,12 +135,45 @@ export class GatewayWebSocketServer {
                 message: `Found outdated client, handing websocket to it`
             });
 
-            const manager = this.clients.find(m => compareVersions(m.version!, payload.v) === oldestClient);
-            manager!.ws = ws;
-            manager!.version = payload.v;
+            const manager = this.clients.find(m => compareVersions(m.version!, payload.v) === oldestClient)!;
 
-            for (const shard of manager!.shards)
+            this.handleAvailableWebsocket(manager.ws!, req, {op: 'available', v: manager.version!});
+
+            manager.ws = ws;
+            manager.version = payload.v;
+            manager.wsAddress = addr;
+
+            for (const shard of manager.shards)
                 shard.attachWebsocket(ws);
+
+            return;
+        }
+
+        if (this.unassignedWebSockets.length < this.clientCount) {
+            log({
+                level: LogLevel.DEBUG,
+                task: 'GWM',
+                step: 'WS',
+                message: `Less than ${this.clientCount} unassigned websockets, storing websocket`
+            });
+
+            this.unassignedWebSockets.push({ws, v: payload.v, address: addr});
+            return;
+        }
+
+        const oldestUnassigned = Math.max(...this.unassignedWebSockets.map(c => compareVersions(c.v, payload.v)));
+
+        if (oldestUnassigned > 0) {
+            log({
+                level: LogLevel.DEBUG,
+                task: 'GWM',
+                step: 'WS',
+                message: `Found older unassigned websocket, replacing it`
+            });
+
+            const {address} = this.unassignedWebSockets.find(c => compareVersions(c.v, payload.v) === oldestUnassigned)!;
+            this.unassignedWebSockets = this.unassignedWebSockets.filter(c => c.address !== address);
+            this.unassignedWebSockets.push({ws, v: payload.v, address: addr});
 
             return;
         }
@@ -153,18 +188,6 @@ export class GatewayWebSocketServer {
 
             ws.close();
             return
-        }
-
-        if (this.unassignedWebSockets.length < this.clientCount) {
-            log({
-                level: LogLevel.DEBUG,
-                task: 'GWM',
-                step: 'WS',
-                message: `Less than ${this.clientCount} unassigned websockets, storing websocket`
-            });
-
-            this.unassignedWebSockets.push({ws, v: payload.v});
-            return;
         }
 
         log({

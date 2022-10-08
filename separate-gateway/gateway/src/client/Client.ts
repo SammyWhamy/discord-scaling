@@ -29,6 +29,7 @@ export class Client {
     private readonly rest: REST;
     public ws: WebSocket | null = null;
     public version: string | null = null;
+    public wsAddress: string | null = null;
 
     public constructor(options: ClientOptions) {
         this.id = options.id;

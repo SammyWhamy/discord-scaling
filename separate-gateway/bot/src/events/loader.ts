@@ -12,7 +12,7 @@ export function eventLoader(client: DiscordClient, shardId: number) {
             message: `Received message: ${message.content}`
         });
 
-        await message.reply({content: "fuck u"});
+        await message.reply({content: `Hello from v${process.env.npm_package_version}`});
     });
 
     client.on('ready', () => {
