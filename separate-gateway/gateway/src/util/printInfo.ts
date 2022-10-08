@@ -13,7 +13,7 @@ export async function printInfo(rest: REST, clientCount: number, shardCount: num
     const longest = Math.max(20, ...Array.from(shardTexts.values()).map(s => s.length));
     for (const [managerId, shardText] of shardTexts.entries()) {
         const managerText = clientCount > 9 ? `Client ${managerId.toString().padStart(2, "0")}` : `Client ${managerId}`;
-        console.log(`${shardText.padEnd(longest)} => ${managerText} ⇔  ws://${process.env.COMPOSE_PROJECT_NAME}-bot-${managerId+1}:80/`);
+        console.log(`${shardText.padEnd(longest)} => ${managerText}`);
     }
 
     const [gatewayInfo, clientUser, clientApplication] = await Promise.all([
@@ -30,7 +30,7 @@ export async function printInfo(rest: REST, clientCount: number, shardCount: num
     console.log(`${`Remaining sessions:`.padEnd(longest)} ${gatewayInfo.session_start_limit.remaining}`);
     console.log(`${`Reset after:`.padEnd(longest)} ${gatewayInfo.session_start_limit.reset_after}ms`);
     console.log(`${`Max concurrency:`.padEnd(longest)} ${gatewayInfo.session_start_limit.max_concurrency}`);
-    console.log("\n========================= Client info: ==========================");
+    console.log("\n========================= Bot info: =============================");
     console.log(`${`Shard count:`.padEnd(longest)} ${shardCount}`);
     console.log(`${`Bot id:`.padEnd(longest)} ${clientUser.id}`);
     console.log(`${`Bot tag:`.padEnd(longest)} ${clientUser.username}#${clientUser.discriminator}`);

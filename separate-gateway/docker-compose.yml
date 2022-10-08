@@ -3,13 +3,12 @@ version: '3.8'
 services:
   gateway:
     container_name: 'gateway'
-    image: 'ghcr.io/sammywhamy/scaling-separate-gateway-gateway:0.1.11'
+    image: 'ghcr.io/sammywhamy/scaling-separate-gateway-gateway:0.1.12'
     build: './gateway'
     restart: unless-stopped
     environment:
       - DISCORD_TOKEN=${DISCORD_TOKEN}
       - BOT_REPLICAS=${BOT_REPLICAS}
-      - COMPOSE_PROJECT_NAME=${COMPOSE_PROJECT_NAME}
       - SHARD_COUNT=${SHARD_COUNT}
       - LOG_LEVEL=${LOG_LEVEL}
     networks:
